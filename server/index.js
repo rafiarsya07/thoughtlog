@@ -43,7 +43,7 @@ import crypto from "crypto";
 import * as db from "./db.js";
 import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
 import { startScheduler } from "./scheduler.js";
-import { upload, processAndSave } from "./uploads.js";
+import { upload, processAndSave } from "./upload.js";
 import { buildRssFeed } from "./rss.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
