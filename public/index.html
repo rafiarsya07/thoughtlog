@@ -7,7 +7,7 @@
 <meta name="description" content="Notes on what I build and why — by Rafi Arsya." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
     --bg:#fbfaf7; --bg-raised:#fff; --ink:#1c1d1a; --ink-soft:#55564f; --faint:#92938a;
@@ -30,6 +30,9 @@
   }
   html, body { transition: background-color .25s var(--ease); }
   *{box-sizing:border-box;margin:0;padding:0}
+  /* Safety net: any inline icon SVG defaults to a sane size unless a scope overrides it.
+     Without this, icons with no width/height attr render at their intrinsic/huge size. */
+  svg{width:18px;height:18px;flex-shrink:0}
   html{scroll-behavior:smooth}
   body{
     background:var(--bg);color:var(--ink);font-family:"Newsreader",Georgia,serif;
@@ -72,15 +75,15 @@
   main.wrap{padding-top:40px;padding-bottom:24px;min-height:60vh}
 
   .search-row{margin-bottom:28px;position:relative}
-  .search-row input{
-    width:100%;padding:13px 16px 13px 42px;border:1px solid var(--line);border-radius:var(--radius-lg);
+  .search-row input[type=text]{
+    display:block;width:100%;padding:13px 16px 13px 46px;border:1px solid var(--line);border-radius:var(--radius-lg);
     background:var(--paper);font-family:"JetBrains Mono",monospace;font-size:13.5px;color:var(--ink);
-    box-shadow:var(--shadow-sm);transition:border-color .18s var(--ease), box-shadow .18s var(--ease);
+    box-shadow:var(--shadow-sm);margin-bottom:0;transition:border-color .18s var(--ease), box-shadow .18s var(--ease);
   }
   .search-row input::placeholder{color:var(--faint)}
   .search-row input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .search-icon{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none;display:flex}
-  .search-icon svg{width:16px;height:16px}
+  .search-icon{position:absolute;left:15px;top:13px;color:var(--faint);pointer-events:none;display:flex;align-items:center;justify-content:center;width:16px;height:16px;line-height:0}
+  .search-icon svg{width:16px;height:16px;display:block}
   .search-spinner{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:14px;height:14px;display:none}
   .search-spinner.show{display:block}
   .search-spinner svg{width:14px;height:14px;animation:spin 0.7s linear infinite}
@@ -163,13 +166,15 @@
   input:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 
   .cover-drop{
-    border:1.5px dashed var(--line);border-radius:var(--radius-lg);padding:20px;margin-bottom:20px;
+    border:1.5px dashed var(--line);border-radius:var(--radius-lg);padding:22px 20px;margin-bottom:20px;
     background:var(--bg);transition:all .18s var(--ease);cursor:pointer;text-align:center;position:relative;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
   }
   .cover-drop:hover,.cover-drop.dragover{border-color:var(--accent);background:var(--accent-soft)}
   .cover-drop input[type=file]{display:none}
-  .cover-drop .hint{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--faint)}
+  .cover-drop .hint{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--faint);line-height:1.6}
   .cover-drop .hint b{color:var(--accent);font-weight:600}
+  .cover-drop .hint svg{width:28px;height:28px;color:var(--faint);margin-bottom:4px;opacity:.7}
   .cover-preview-wrap{position:relative;margin-bottom:20px}
   .cover-preview-wrap img{width:100%;border-radius:var(--radius-lg);display:block;border:1px solid var(--line);max-height:280px;object-fit:cover}
   .cover-remove{
@@ -380,6 +385,71 @@
     .newsletter-form{width:100%}
     .newsletter-form input{flex:1;min-width:0}
   }
+
+  /* ─────────────────────────────────────────────────────────────
+     READING MODE — a floating control on article pages that lets a
+     reader tune font size, column width, typeface and theme. All
+     preferences persist in localStorage and apply via CSS variables.
+     ───────────────────────────────────────────────────────────── */
+  :root{
+    --reader-fs:1;          /* font-size multiplier */
+    --reader-measure:760px; /* article column width */
+  }
+  /* When reader prefs are active, the article body scales from these vars */
+  article.post .post-body{
+    font-size:calc(19px * var(--reader-fs));
+    line-height:1.75;
+  }
+  body[data-reader-font="sans"] article.post .post-body{
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  body[data-reader-font="sans"] article.post .post-body h2,
+  body[data-reader-font="sans"] article.post .post-body h3{
+    font-family:"Inter",system-ui,sans-serif;letter-spacing:-.02em;
+  }
+  /* Column width is applied to the whole article wrap when reading */
+  body[data-reader-on="1"] .wrap.reader-scope{max-width:var(--reader-measure);transition:max-width .25s var(--ease)}
+
+  .reader-fab{
+    position:fixed;right:20px;bottom:20px;z-index:60;
+    width:48px;height:48px;border-radius:50%;border:1px solid var(--line);
+    background:var(--bg-raised);color:var(--accent);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(0,0,0,.12);transition:transform .18s var(--ease),box-shadow .18s var(--ease);
+  }
+  .reader-fab svg{width:21px;height:21px}
+  .reader-fab:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.16)}
+  .reader-panel{
+    position:fixed;right:20px;bottom:80px;z-index:61;width:290px;
+    background:var(--bg-raised);border:1px solid var(--line);border-radius:16px;
+    box-shadow:0 16px 48px rgba(0,0,0,.18);padding:18px 18px 16px;
+    opacity:0;transform:translateY(10px) scale(.97);pointer-events:none;transform-origin:bottom right;
+    transition:opacity .2s var(--ease),transform .2s var(--ease);
+  }
+  .reader-panel.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+  .reader-panel .rp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .reader-panel .rp-title{font-family:"Fraunces",serif;font-size:17px;font-weight:600}
+  .reader-panel .rp-close{background:none;border:none;cursor:pointer;color:var(--faint);display:flex;padding:4px;border-radius:6px}
+  .reader-panel .rp-close:hover{background:var(--bg);color:var(--ink)}
+  .rp-group{margin-bottom:16px}
+  .rp-group:last-child{margin-bottom:0}
+  .rp-label{display:flex;align-items:center;gap:7px;font-family:"JetBrains Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--faint);margin-bottom:9px}
+  .rp-label svg{width:13px;height:13px}
+  .rp-seg{display:flex;gap:6px}
+  .rp-seg button{
+    flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink-soft);
+    border-radius:9px;padding:9px 0;cursor:pointer;font-family:"JetBrains Mono",monospace;font-size:12px;
+    transition:all .14s var(--ease);display:flex;align-items:center;justify-content:center;
+  }
+  .rp-seg button:hover{border-color:var(--accent);color:var(--accent)}
+  .rp-seg button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .rp-seg button .a{font-size:11px} .rp-seg button .b{font-size:15px} .rp-seg button .c{font-size:19px}
+  .rp-reset{width:100%;margin-top:4px;background:none;border:none;cursor:pointer;color:var(--faint);font-family:"JetBrains Mono",monospace;font-size:11px;padding:6px;border-radius:6px;transition:color .15s}
+  .rp-reset:hover{color:var(--accent)}
+  @media(max-width:520px){
+    .reader-panel{right:12px;left:12px;width:auto;bottom:78px}
+    .reader-fab{right:14px;bottom:14px}
+  }
 </style>
 </head>
 <body>
@@ -462,6 +532,10 @@ const ICONS={
   twitter:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.9 2H22l-7.6 8.7L23 22h-6.4l-5-6.6L5.7 22H2.6l8.2-9.4L1.6 2h6.5l4.6 6.1L18.9 2Zm-2.2 18h1.8L8 4H6.1l10.6 16Z"/></svg>`,
   link:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
   starFull:`★`, starEmpty:`☆`,
+  reader:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+  textSize:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>`,
+  width:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 5 3 5 3 8"/><polyline points="3 16 3 19 21 19 21 16"/><line x1="12" x2="12" y1="5" y2="19"/></svg>`,
+  close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>`,
 };
 
 // ---- dark mode: persisted in localStorage, applied before first paint of
@@ -760,6 +834,7 @@ async function viewPost(slug){
     const bodyEl=document.getElementById("postBody");
     document.getElementById("tocSlot").innerHTML=buildToc(bodyEl);
     bindProgressBar(bodyEl);
+    mountReader();
   }catch(e){
     if(e.error==="cancelled")return;
     app.innerHTML=`<button class="back-link" onclick="go('/')">${ICONS.back} all posts</button><div class="empty">${errorBlock(e.error&&e.error!=="Post not found"?e.error:"This post doesn't exist, or isn't published yet.")}<button class="btn ghost small" onclick="viewPost('${slug.replace(/'/g,"\\'")}')">Try again</button></div>`;
@@ -969,7 +1044,105 @@ async function savePost(editId,action){
   }
 }
 
+/* ─────────────────────────────────────────────────────────────
+   READING MODE
+   A floating control available on article pages. Reader can set
+   font size (S/M/L), column width (narrow/normal/wide), typeface
+   (serif/sans) and theme (light/dark). Persisted in localStorage
+   and applied via CSS variables + data-attributes on <body>.
+   ───────────────────────────────────────────────────────────── */
+const READER_DEFAULTS={fs:"m",width:"normal",font:"serif"};
+const FS_MAP={s:0.9,m:1,l:1.15};
+const WIDTH_MAP={narrow:"620px",normal:"760px",wide:"900px"};
+function getReaderPrefs(){
+  try{return {...READER_DEFAULTS,...JSON.parse(localStorage.getItem("tl_reader")||"{}")}}
+  catch{return {...READER_DEFAULTS}}
+}
+function saveReaderPrefs(p){localStorage.setItem("tl_reader",JSON.stringify(p))}
+function applyReaderPrefs(){
+  const p=getReaderPrefs();
+  document.documentElement.style.setProperty("--reader-fs",FS_MAP[p.fs]??1);
+  document.documentElement.style.setProperty("--reader-measure",WIDTH_MAP[p.width]??"760px");
+  document.body.setAttribute("data-reader-font",p.font);
+  // reflect active states in panel if it's open
+  document.querySelectorAll("[data-rp]").forEach(b=>{
+    const [k,v]=b.dataset.rp.split(":");
+    b.classList.toggle("on", String(p[k])===v || (k==="theme"&&getTheme()===v));
+  });
+}
+function setReaderPref(key,val){
+  if(key==="theme"){ if(getTheme()!==val) toggleTheme(); applyReaderPrefs(); return; }
+  const p=getReaderPrefs(); p[key]=val; saveReaderPrefs(p); applyReaderPrefs();
+}
+function resetReaderPrefs(){ saveReaderPrefs({...READER_DEFAULTS}); applyReaderPrefs(); }
+function unmountReader(){
+  document.body.removeAttribute("data-reader-on");
+  document.getElementById("readerFab")?.remove();
+  document.getElementById("readerPanel")?.remove();
+  app.classList.remove("reader-scope");
+}
+function mountReader(){
+  if(document.getElementById("readerFab"))return;
+  document.body.setAttribute("data-reader-on","1");
+  app.classList.add("reader-scope");
+  const fab=document.createElement("button");
+  fab.id="readerFab";fab.className="reader-fab";fab.title="Reading settings";
+  fab.setAttribute("aria-label","Reading settings");
+  fab.innerHTML=ICONS.reader;
+  const panel=document.createElement("div");
+  panel.id="readerPanel";panel.className="reader-panel";
+  panel.innerHTML=`
+    <div class="rp-head">
+      <span class="rp-title">Reading</span>
+      <button class="rp-close" id="rpClose" aria-label="Close">${ICONS.close}</button>
+    </div>
+    <div class="rp-group">
+      <div class="rp-label">${ICONS.textSize} Text size</div>
+      <div class="rp-seg">
+        <button data-rp="fs:s"><span class="a">A</span></button>
+        <button data-rp="fs:m"><span class="b">A</span></button>
+        <button data-rp="fs:l"><span class="c">A</span></button>
+      </div>
+    </div>
+    <div class="rp-group">
+      <div class="rp-label">${ICONS.width} Column width</div>
+      <div class="rp-seg">
+        <button data-rp="width:narrow">Narrow</button>
+        <button data-rp="width:normal">Normal</button>
+        <button data-rp="width:wide">Wide</button>
+      </div>
+    </div>
+    <div class="rp-group">
+      <div class="rp-label">${ICONS.reader} Typeface</div>
+      <div class="rp-seg">
+        <button data-rp="font:serif" style="font-family:'Newsreader',serif">Serif</button>
+        <button data-rp="font:sans" style="font-family:'Inter',sans-serif">Sans</button>
+      </div>
+    </div>
+    <div class="rp-group">
+      <div class="rp-label">${ICONS.moon} Theme</div>
+      <div class="rp-seg">
+        <button data-rp="theme:light">Light</button>
+        <button data-rp="theme:dark">Dark</button>
+      </div>
+    </div>
+    <button class="rp-reset" id="rpReset">Reset to defaults</button>`;
+  document.body.appendChild(fab);
+  document.body.appendChild(panel);
+  fab.addEventListener("click",()=>panel.classList.toggle("open"));
+  panel.querySelector("#rpClose").addEventListener("click",()=>panel.classList.remove("open"));
+  panel.querySelector("#rpReset").addEventListener("click",resetReaderPrefs);
+  panel.querySelectorAll("[data-rp]").forEach(btn=>{
+    btn.addEventListener("click",()=>{const [k,v]=btn.dataset.rp.split(":");setReaderPref(k,v)});
+  });
+  document.addEventListener("click",(e)=>{
+    if(!panel.contains(e.target)&&!fab.contains(e.target))panel.classList.remove("open");
+  });
+  applyReaderPrefs();
+}
+
 function route(){
+  unmountReader();
   const path=location.pathname,params=new URLSearchParams(location.search);
   if(path==="/")return viewList(params.get("q"));
   if(path.startsWith("/p/"))return viewPost(decodeURIComponent(path.slice(3)));
@@ -980,7 +1153,7 @@ function route(){
   if(path.startsWith("/edit/"))return viewEditor(Number(path.slice(6)));
   app.innerHTML=`<div class="empty"><div class="empty-icon">?</div>page not found<button class="btn ghost small" onclick="go('/')">Back home</button></div>`;
 }
-(async function(){await refreshMe();route()})();
+(async function(){applyReaderPrefs();await refreshMe();route()})();
 </script>
 </body>
 </html>
