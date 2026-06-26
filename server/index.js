@@ -43,7 +43,7 @@ import crypto from "crypto";
 import * as db from "./db.js";
 import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
 import { startScheduler } from "./scheduler.js";
-import { upload, processAndSave } from "./uploads.js";
+import { upload } from "./upload.js";
 import { buildRssFeed } from "./rss.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -299,15 +299,10 @@ app.post("/api/admin/preview", requireAuth, (req, res) => {
 // disk, then we hand back the public URL the front-end either stores as
 // coverImage or splices into the body as ![](url).
 app.post("/api/admin/upload", requireAuth, (req, res) => {
-  upload.single("image")(req, res, async (err) => {
+  upload.single("image")(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message || "Upload failed" });
     if (!req.file) return res.status(400).json({ error: "No image received" });
-    try {
-      const url = await processAndSave(req.file.buffer);
-      res.json({ url });
-    } catch {
-      res.status(500).json({ error: "Could not process image" });
-    }
+    res.json({ url: `/uploads/${req.file.filename}` });
   });
 });
 
