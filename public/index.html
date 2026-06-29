@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<!-- highlight.js for code syntax highlighting; styled monochrome below to fit the theme -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
 <style>
   :root {
     --bg:#fbfaf7; --bg-raised:#fff; --ink:#1c1d1a; --ink-soft:#55564f; --faint:#92938a;
@@ -450,10 +452,151 @@
     .reader-panel{right:12px;left:12px;width:auto;bottom:78px}
     .reader-fab{right:14px;bottom:14px}
   }
+
+  /* ═══════════════════════════════════════════════════════════════
+     NEW FEATURES — code copy + syntax highlight, image lightbox,
+     back-to-top, callouts, footnotes, editor format toolbar,
+     word-count + autosave, dashboard filter + bulk actions.
+     All kept monochrome to match the existing palette.
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* ---------- code block: header bar with language + copy button ---------- */
+  .code-wrap{position:relative;margin:0 0 26px}
+  .code-wrap pre{margin:0}
+  .code-head{
+    display:flex;align-items:center;justify-content:space-between;
+    background:#161714;border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+    padding:8px 14px;border-bottom:1px solid rgba(255,255,255,.07);
+  }
+  .code-wrap.has-head pre{border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+  .code-lang{font-family:"JetBrains Mono",monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:#8a8c82}
+  .code-copy{
+    font-family:"JetBrains Mono",monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#cfcec4;
+    padding:4px 10px;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+    transition:all .15s var(--ease);
+  }
+  .code-copy:hover{background:rgba(255,255,255,.13);color:#fff}
+  .code-copy.copied{background:var(--accent);border-color:var(--accent);color:#fff}
+  .code-copy svg{width:12px;height:12px}
+  /* highlight.js monochrome scheme — tones of the same ink, no rainbow */
+  .hljs{color:#e8e6dd;background:transparent}
+  .hljs-comment,.hljs-quote{color:#7c7e74;font-style:italic}
+  .hljs-keyword,.hljs-selector-tag,.hljs-built_in,.hljs-name,.hljs-tag{color:#fff;font-weight:600}
+  .hljs-string,.hljs-title,.hljs-section,.hljs-attribute,.hljs-literal,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-addition{color:#bfc7b4}
+  .hljs-number,.hljs-symbol,.hljs-bullet,.hljs-link,.hljs-meta,.hljs-deletion{color:#a9b0c0}
+  .hljs-emphasis{font-style:italic}.hljs-strong{font-weight:700}
+
+  /* ---------- callouts (> [!note] / [!warn] / [!tip]) ---------- */
+  .callout{
+    border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:var(--radius);padding:14px 18px;margin:0 0 24px;background:var(--bg);
+  }
+  .callout .callout-head{
+    display:flex;align-items:center;gap:8px;font-family:"JetBrains Mono",monospace;
+    font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:6px;font-weight:500;
+  }
+  .callout .callout-head svg{width:14px;height:14px}
+  .callout p:last-child{margin-bottom:0}
+  .callout.warn{border-left-color:var(--danger)}.callout.warn .callout-head{color:var(--danger)}
+  .callout.tip{border-left-color:var(--amber)}.callout.tip .callout-head{color:var(--amber)}
+
+  /* ---------- footnotes ---------- */
+  .post-body sup.fnref{font-size:.7em;line-height:0}
+  .post-body sup.fnref a{color:var(--accent);text-decoration:none;padding:0 1px;font-weight:600}
+  .footnotes{margin-top:48px;padding-top:22px;border-top:1px solid var(--line);font-size:15px;color:var(--ink-soft)}
+  .footnotes .fn-title{font-family:"JetBrains Mono",monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--faint);margin-bottom:14px}
+  .footnotes ol{margin-left:20px}.footnotes li{margin-bottom:8px}
+  .footnotes a.fn-back{color:var(--accent);text-decoration:none;margin-left:6px}
+
+  /* ---------- image lightbox ---------- */
+  .post-body img{cursor:zoom-in}
+  .lightbox{
+    position:fixed;inset:0;z-index:120;background:rgba(12,12,10,.92);
+    display:flex;align-items:center;justify-content:center;padding:32px;
+    opacity:0;pointer-events:none;transition:opacity .22s var(--ease);
+  }
+  .lightbox.open{opacity:1;pointer-events:auto}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:var(--radius);box-shadow:0 24px 70px rgba(0,0,0,.5);transform:scale(.96);transition:transform .22s var(--ease)}
+  .lightbox.open img{transform:scale(1)}
+  .lightbox-close{
+    position:absolute;top:20px;right:24px;width:42px;height:42px;border-radius:50%;
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:background .15s;
+  }
+  .lightbox-close:hover{background:rgba(255,255,255,.22)}
+  .lightbox-close svg{width:20px;height:20px}
+
+  /* ---------- back-to-top ---------- */
+  .to-top{
+    position:fixed;left:20px;bottom:20px;z-index:55;width:44px;height:44px;border-radius:50%;
+    border:1px solid var(--line);background:var(--bg-raised);color:var(--ink-soft);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.12);
+    opacity:0;transform:translateY(12px);pointer-events:none;transition:all .22s var(--ease);
+  }
+  .to-top.show{opacity:1;transform:translateY(0);pointer-events:auto}
+  .to-top:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .to-top svg{width:18px;height:18px}
+  @media(max-width:520px){.to-top{left:14px;bottom:14px}}
+
+  /* ---------- editor: format toolbar + word count + autosave ---------- */
+  .editor-toolbar .tb-sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+  .editor-toolbar button.tb{padding:6px 10px;min-width:32px;justify-content:center}
+  .editor-toolbar button.tb b,.editor-toolbar button.tb i{font-family:Georgia,serif;font-size:13px}
+  .editor-meta{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);margin:-12px 0 16px;
+  }
+  .editor-meta .counts{display:flex;gap:14px}
+  .editor-meta .autosave{display:inline-flex;align-items:center;gap:6px;transition:color .2s}
+  .editor-meta .autosave.saved{color:var(--accent)}
+  .editor-meta .autosave .dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.7}
+  .restore-banner{
+    background:var(--amber-soft);border:1px solid var(--amber);color:var(--amber);border-radius:var(--radius);
+    padding:11px 14px;margin-bottom:18px;font-family:"JetBrains Mono",monospace;font-size:12px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  }
+  .restore-banner .ra{display:flex;gap:8px}
+  .restore-banner button{font-family:"JetBrains Mono",monospace;font-size:11px;padding:5px 11px;border-radius:5px;cursor:pointer;border:1px solid var(--amber);background:none;color:var(--amber);transition:all .15s}
+  .restore-banner button:hover{background:var(--amber);color:#fff}
+  .restore-banner button.dismiss{border-color:transparent;color:var(--faint)}
+  .restore-banner button.dismiss:hover{background:none;color:var(--ink)}
+
+  /* ---------- dashboard: filter bar + bulk actions ---------- */
+  .filter-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+  .filter-bar .seg{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:24px;padding:3px}
+  .filter-bar .seg button{
+    font-family:"JetBrains Mono",monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    border:none;background:none;color:var(--ink-soft);padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .15s var(--ease);
+  }
+  .filter-bar .seg button:hover{color:var(--accent)}
+  .filter-bar .seg button.on{background:var(--ink);color:#fff}
+  .filter-bar .fsearch{flex:1;min-width:160px;position:relative}
+  .filter-bar .fsearch input{
+    width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:20px;background:var(--bg);
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--ink);margin:0;
+  }
+  .filter-bar .fsearch input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .bulk-bar{
+    display:none;align-items:center;gap:12px;flex-wrap:wrap;background:var(--accent-soft);
+    border:1px solid var(--accent);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;
+    font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--accent);
+  }
+  .bulk-bar.show{display:flex}
+  .bulk-bar .sel-count{font-weight:600}
+  .bulk-bar .spacer{flex:1}
+  .admin-post-row .row-check{display:flex;align-items:center;margin-right:4px}
+  .admin-post-row input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0}
+  .admin-post-row.selected{background:var(--accent-soft)}
 </style>
 </head>
 <body>
   <div class="progress-bar" id="progressBar"></div>
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close image"></button>
+    <img id="lightboxImg" src="" alt="" />
+  </div>
+  <button class="to-top" id="toTop" aria-label="Back to top"></button>
   <header class="site">
     <div class="wrap site-inner">
       <div class="brand-group">
@@ -536,6 +679,12 @@ const ICONS={
   textSize:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg>`,
   width:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 5 3 5 3 8"/><polyline points="3 16 3 19 21 19 21 16"/><line x1="12" x2="12" y1="5" y2="19"/></svg>`,
   close:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>`,
+  copy:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>`,
+  check:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+  top:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>`,
+  info:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>`,
+  tip:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1h6c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z"/></svg>`,
+  trash:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
 };
 
 // ---- dark mode: persisted in localStorage, applied before first paint of
@@ -820,6 +969,75 @@ function bindProgressBar(bodyEl){
   progressHandler();
 }
 
+// Back-to-top: appears once the reader has scrolled past one viewport.
+let topHandler=null;
+function bindBackToTop(){
+  const btn=document.getElementById("toTop");
+  if(topHandler)window.removeEventListener("scroll",topHandler);
+  topHandler=()=>{btn.classList.toggle("show",window.scrollY>window.innerHeight*0.8)};
+  window.addEventListener("scroll",topHandler,{passive:true});
+  topHandler();
+}
+document.getElementById("toTop").addEventListener("click",()=>{
+  window.scrollTo({top:0,behavior:"smooth"});
+});
+
+// Image lightbox: any image inside a rendered post opens fullscreen on click.
+(function initLightbox(){
+  const lb=document.getElementById("lightbox"),img=document.getElementById("lightboxImg");
+  const close=()=>{lb.classList.remove("open");lb.setAttribute("aria-hidden","true");img.src=""};
+  document.getElementById("lightboxClose").innerHTML=ICONS.close;
+  document.getElementById("lightboxClose").addEventListener("click",close);
+  lb.addEventListener("click",(e)=>{if(e.target===lb)close()});
+  document.addEventListener("keydown",(e)=>{if(e.key==="Escape"&&lb.classList.contains("open"))close()});
+  window.__openLightbox=(src,alt)=>{img.src=src;img.alt=alt||"";lb.classList.add("open");lb.setAttribute("aria-hidden","false")};
+})();
+
+// Post-render enhancements applied to the rendered article body:
+//  1. wrap every <pre><code> in a header bar with language label + copy button
+//  2. run highlight.js over code blocks (monochrome theme via CSS)
+//  3. make images open in the lightbox
+// Called once after the post HTML is inserted into the DOM.
+function enhancePostBody(bodyEl){
+  // --- code blocks ---
+  bodyEl.querySelectorAll("pre > code").forEach((code)=>{
+    const pre=code.parentElement;
+    if(pre.parentElement.classList.contains("code-wrap"))return; // already done
+    // detect language from the "language-xxx" class marked.js adds
+    let lang="";
+    code.classList.forEach(c=>{if(c.startsWith("language-"))lang=c.slice(9)});
+    // syntax highlight if the library loaded
+    try{if(window.hljs){lang?hljs.highlightElement(code):hljs.highlightElement(code)}}catch{}
+    const wrap=document.createElement("div");
+    wrap.className="code-wrap has-head";
+    const head=document.createElement("div");
+    head.className="code-head";
+    head.innerHTML=`<span class="code-lang">${esc(lang||"code")}</span>
+      <button class="code-copy" type="button">${ICONS.copy}<span>Copy</span></button>`;
+    pre.replaceWith(wrap);
+    wrap.appendChild(head);
+    wrap.appendChild(pre);
+    const btn=head.querySelector(".code-copy");
+    btn.addEventListener("click",()=>{
+      navigator.clipboard?.writeText(code.textContent).then(()=>{
+        btn.classList.add("copied");
+        btn.innerHTML=`${ICONS.check}<span>Copied</span>`;
+        setTimeout(()=>{btn.classList.remove("copied");btn.innerHTML=`${ICONS.copy}<span>Copy</span>`},1600);
+      }).catch(()=>showToast("Could not copy",true));
+    });
+  });
+  // --- images -> lightbox ---
+  bodyEl.querySelectorAll("img").forEach((im)=>{
+    im.addEventListener("click",()=>window.__openLightbox(im.src,im.alt));
+  });
+  // --- callout icons (server emits data-icon, we slot the svg in) ---
+  const CALLOUT_ICON={note:ICONS.info,info:ICONS.info,tip:ICONS.tip,warn:ICONS.warn,warning:ICONS.warn};
+  bodyEl.querySelectorAll(".callout-head[data-icon]").forEach((h)=>{
+    const ic=CALLOUT_ICON[h.dataset.icon]||ICONS.info;
+    h.insertAdjacentHTML("afterbegin",ic);
+  });
+}
+
 async function viewPost(slug){
   if(currentController)currentController.abort("navigated-away");
   const ctrl=currentController=new AbortController();
@@ -833,7 +1051,9 @@ async function viewPost(slug){
     app.innerHTML=`<button class="back-link" onclick="go('/')">${ICONS.back} all posts</button><article class="post"><div class="post-title">${esc(p.title)}</div><div class="post-meta"><span>${fmtDate(p.publishAt||p.createdAt)}</span>${p.tags.map(t=>`<span class="tag" style="cursor:pointer" onclick="go('/tag/'+encodeURIComponent('${esc(t)}'))">#${esc(t)}</span>`).join("")}<span class="dot-sep">${p.readingTime} min read</span><span>${p.views} views</span></div>${p.coverImage?`<img class="cover" src="${esc(p.coverImage)}" alt=""/>`:""}<div id="tocSlot"></div><div class="post-body" id="postBody">${p.html}</div>${shareRow(p,url)}${reactionsRow(p.slug,p.reactions||{},p.myReactions||[])}${p.related&&p.related.length?`<div class="related"><h3>Related</h3>${p.related.map(r=>`<div class="related-item" onclick="go('/p/${r.slug}')">${esc(r.title)}</div>`).join("")}</div>`:""}${commentsSection(p.slug,p.comments||[],p.rating||{count:0,average:0})}</article>`;
     const bodyEl=document.getElementById("postBody");
     document.getElementById("tocSlot").innerHTML=buildToc(bodyEl);
+    enhancePostBody(bodyEl);
     bindProgressBar(bodyEl);
+    bindBackToTop();
     mountReader();
   }catch(e){
     if(e.error==="cancelled")return;
@@ -864,6 +1084,7 @@ async function doLogin(){
 
 async function viewAdmin(){
   if(!me)return go("/login");
+  adminFilter="all";adminQuery="";adminSelected=new Set();
   app.innerHTML=`<div class="skeleton">${skeletonCards(3)}</div>`;
   let posts,stats,top;
   try{
@@ -879,21 +1100,144 @@ async function viewAdmin(){
 
   app.innerHTML=`<div class="stats-row"><div class="stat"><div class="num">${stats.total}</div><div class="lbl">Total</div></div><div class="stat"><div class="num">${stats.published}</div><div class="lbl">Published</div></div><div class="stat"><div class="num">${stats.scheduled}</div><div class="lbl">Scheduled</div></div><div class="stat"><div class="num">${stats.drafts}</div><div class="lbl">Drafts</div></div><div class="stat"><div class="num">${stats.total_views}</div><div class="lbl">Total Views</div></div><div class="stat"><div class="num">${stats.total_comments}</div><div class="lbl">Comments</div></div><div class="stat"><div class="num">${stats.total_subscribers}</div><div class="lbl">Subscribers</div></div></div>
   <div class="panel"><h2>Top posts</h2><div>${topHtml}</div></div>
-  <div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px"><h2 style="margin:0">All posts</h2><button class="btn" onclick="go('/write')">+ New post</button></div><div id="adminlist"></div></div>`;
+  <div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px"><h2 style="margin:0">All posts</h2><button class="btn" onclick="go('/write')">+ New post</button></div>
+    <div class="filter-bar">
+      <div class="seg" id="statusSeg">
+        <button data-f="all" class="on" onclick="setAdminFilter('all')">All</button>
+        <button data-f="published" onclick="setAdminFilter('published')">Published</button>
+        <button data-f="scheduled" onclick="setAdminFilter('scheduled')">Scheduled</button>
+        <button data-f="draft" onclick="setAdminFilter('draft')">Drafts</button>
+      </div>
+      <div class="fsearch"><input id="adminSearch" type="text" placeholder="filter by title or slug…" autocomplete="off"/></div>
+    </div>
+    <div class="bulk-bar" id="bulkBar">
+      <span class="sel-count" id="selCount">0 selected</span>
+      <span class="spacer"></span>
+      <button class="btn ghost small" onclick="bulkAction('publish')">Publish</button>
+      <button class="btn ghost small" onclick="bulkAction('draft')">Move to draft</button>
+      <button class="btn danger small" onclick="bulkAction('delete')">Delete</button>
+      <button class="btn ghost small" onclick="clearSelection()">Clear</button>
+    </div>
+    <div id="adminlist"></div></div>`;
   renderAdminList(posts);
+  const as=document.getElementById("adminSearch");
+  if(as){let st;as.oninput=()=>{clearTimeout(st);st=setTimeout(()=>{adminQuery=as.value.trim();renderAdminList()},180)}}
 }
+// Dashboard list state: the full set from the server, the active status
+// filter, the text query, and the set of selected post ids for bulk actions.
+let adminPosts=[];
+let adminFilter="all";
+let adminQuery="";
+let adminSelected=new Set();
+
 function renderAdminList(posts){
+  if(posts)adminPosts=posts;
   const el=document.getElementById("adminlist");
-  if(!posts.length){el.innerHTML=`<div class="empty"><div class="empty-icon">✎</div>no posts yet<button class="btn small" onclick="go('/write')">Write your first post</button></div>`;return}
-  el.innerHTML=posts.map(p=>{
+  if(!adminPosts.length){el.innerHTML=`<div class="empty"><div class="empty-icon">✎</div>no posts yet<button class="btn small" onclick="go('/write')">Write your first post</button></div>`;return}
+  const q=adminQuery.toLowerCase();
+  const shown=adminPosts.filter(p=>
+    (adminFilter==="all"||p.status===adminFilter)&&
+    (!q||p.title.toLowerCase().includes(q)||p.slug.toLowerCase().includes(q))
+  );
+  // prune selections that are no longer visible
+  adminSelected.forEach(id=>{if(!shown.some(p=>p.id===id))adminSelected.delete(id)});
+  if(!shown.length){
+    el.innerHTML=`<div class="empty" style="padding:40px 0"><div class="empty-icon">⌕</div>no posts match this filter</div>`;
+    updateBulkBar();return;
+  }
+  el.innerHTML=shown.map(p=>{
     let sched=p.status==="scheduled"&&p.publishAt?` · publishes ${fmtDateTime(p.publishAt)}`:"";
-    return `<div class="admin-post-row"><div><div class="t">${esc(p.title)} <span class="badge ${p.status}">${p.status}</span></div><div class="s">/${esc(p.slug)} · ${p.views} views${sched}</div></div><div class="btn-group"><button class="btn ghost small" onclick="go('/edit/${p.id}')">Edit</button><button class="btn ghost small" onclick="go('/p/${p.slug}')">View</button><button class="btn danger small" onclick="delPost(${p.id})">Delete</button></div></div>`;
+    const checked=adminSelected.has(p.id)?"checked":"";
+    return `<div class="admin-post-row${adminSelected.has(p.id)?" selected":""}" data-id="${p.id}">
+      <span class="row-check"><input type="checkbox" ${checked} onchange="toggleSelect(${p.id},this.checked)" aria-label="Select post"/></span>
+      <div style="flex:1"><div class="t">${esc(p.title)} <span class="badge ${p.status}">${p.status}</span></div><div class="s">/${esc(p.slug)} · ${p.views} views${sched}</div></div>
+      <div class="btn-group"><button class="btn ghost small" onclick="go('/edit/${p.id}')">Edit</button><button class="btn ghost small" onclick="go('/p/${p.slug}')">View</button><button class="btn danger small" onclick="delPost(${p.id})">Delete</button></div>
+    </div>`;
   }).join("");
+  updateBulkBar();
+}
+function setAdminFilter(f){
+  adminFilter=f;
+  document.querySelectorAll("#statusSeg button").forEach(b=>b.classList.toggle("on",b.dataset.f===f));
+  renderAdminList();
+}
+function toggleSelect(id,on){
+  if(on)adminSelected.add(id);else adminSelected.delete(id);
+  const row=document.querySelector(`.admin-post-row[data-id="${id}"]`);
+  if(row)row.classList.toggle("selected",on);
+  updateBulkBar();
+}
+function clearSelection(){adminSelected.clear();renderAdminList()}
+function updateBulkBar(){
+  const bar=document.getElementById("bulkBar");if(!bar)return;
+  bar.classList.toggle("show",adminSelected.size>0);
+  const c=document.getElementById("selCount");
+  if(c)c.textContent=`${adminSelected.size} selected`;
+}
+async function bulkAction(action){
+  const ids=[...adminSelected];
+  if(!ids.length)return;
+  const verb=action==="delete"?"Delete":action==="publish"?"Publish":"Move to draft";
+  if(action==="delete"&&!confirm(`Delete ${ids.length} post${ids.length===1?"":"s"} for good?`))return;
+  try{
+    const r=await api("/admin/posts/bulk",{method:"POST",body:JSON.stringify({ids,action})});
+    showToast(`${verb}: ${r.affected} post${r.affected===1?"":"s"}`);
+    adminSelected.clear();
+    viewAdmin();
+  }catch(e){showToast(e.error||"Bulk action failed",true)}
 }
 async function delPost(id){
   if(!confirm("Delete this post for good?"))return;
   try{await api("/admin/posts/"+id,{method:"DELETE"});showToast("Post deleted");viewAdmin()}
   catch(e){showToast(e.error||"Could not delete post",true)}
+}
+
+// Apply a Markdown formatting action to a textarea around the current
+// selection (or insert a placeholder if nothing is selected). Wraps inline
+// styles, prefixes block styles line-by-line, and re-selects sensibly so the
+// caret lands where you'd expect. Shared by the toolbar and Ctrl/Cmd shortcuts.
+function applyFormat(ta,kind,...after){
+  const s=ta.selectionStart,e=ta.selectionEnd;
+  const sel=ta.value.slice(s,e);
+  const before=ta.value.slice(0,s),rest=ta.value.slice(e);
+  const wrap=(pre,post,ph)=>{
+    const inner=sel||ph;
+    ta.value=before+pre+inner+post+rest;
+    const start=s+pre.length;
+    ta.setSelectionRange(start,start+inner.length);
+  };
+  const linePrefix=(pre,ph)=>{
+    const inner=sel||ph;
+    const out=inner.split("\n").map(l=>pre+l).join("\n");
+    ta.value=before+out+rest;
+    ta.setSelectionRange(s,s+out.length);
+  };
+  switch(kind){
+    case "bold":   wrap("**","**","bold text");break;
+    case "italic": wrap("*","*","italic text");break;
+    case "code":   wrap("`","`","code");break;
+    case "h2":     linePrefix("## ","Heading");break;
+    case "h3":     linePrefix("### ","Subheading");break;
+    case "quote":  linePrefix("> ","Quote");break;
+    case "ul":     linePrefix("- ","List item");break;
+    case "codeblock":{
+      const inner=sel||"code here";
+      const nl=before&&!before.endsWith("\n")?"\n":"";
+      ta.value=before+nl+"```\n"+inner+"\n```\n"+rest;
+      const start=s+nl.length+4;
+      ta.setSelectionRange(start,start+inner.length);
+      break;
+    }
+    case "link":{
+      const text=sel||"link text";
+      ta.value=before+"["+text+"](url)"+rest;
+      const urlStart=s+1+text.length+2;
+      ta.setSelectionRange(urlStart,urlStart+3); // select "url"
+      break;
+    }
+  }
+  ta.focus();
+  after.forEach(fn=>{try{fn()}catch{}});
 }
 
 let pendingCoverUrl="";
@@ -916,18 +1260,35 @@ async function viewEditor(editId){
     <div class="panel">
       <h2>${editId?"Edit post":"Write a new post"}</h2>
       <div id="err"></div>
+      <div id="restoreSlot"></div>
       <label>Title</label><input id="title" type="text" placeholder="What's on your mind?" value="${esc(post.title)}"/>
       <label>Tags (comma separated)</label><input id="tags" type="text" placeholder="backend, devops" value="${esc(post.tags)}"/>
       <label>Cover image</label>
       <div id="coverArea"></div>
       <label>Body (Markdown) — live preview on the right</label>
       <div class="editor-toolbar">
+        <button type="button" class="tb" title="Bold (Ctrl+B)" onclick="fmt('bold')"><b>B</b></button>
+        <button type="button" class="tb" title="Italic (Ctrl+I)" onclick="fmt('italic')"><i>I</i></button>
+        <span class="tb-sep"></span>
+        <button type="button" class="tb" title="Heading" onclick="fmt('h2')">H2</button>
+        <button type="button" class="tb" title="Subheading" onclick="fmt('h3')">H3</button>
+        <span class="tb-sep"></span>
+        <button type="button" class="tb" title="Link (Ctrl+K)" onclick="fmt('link')">${ICONS.link}</button>
+        <button type="button" class="tb" title="Quote" onclick="fmt('quote')">&ldquo;&rdquo;</button>
+        <button type="button" class="tb" title="Inline code" onclick="fmt('code')">&lt;/&gt;</button>
+        <button type="button" class="tb" title="Code block" onclick="fmt('codeblock')">{ }</button>
+        <button type="button" class="tb" title="Bulleted list" onclick="fmt('ul')">&bull; &mdash;</button>
+        <span class="tb-sep"></span>
         <button type="button" onclick="document.getElementById('inlineImgInput').click()">${ICONS.image} Insert image</button>
         <input type="file" id="inlineImgInput" accept="image/png,image/jpeg,image/webp,image/gif"/>
       </div>
       <div class="editor-grid">
-        <textarea id="body" placeholder="## A heading&#10;&#10;Write your thoughts. **Bold**, lists, > quotes and \`code\` all work.">${esc(post.body)}</textarea>
+        <textarea id="body" placeholder="## A heading&#10;&#10;Write your thoughts. **Bold**, lists, > quotes and \`code\` all work.&#10;&#10;Try a callout:&#10;> [!tip] This becomes a styled box.&#10;&#10;Or a footnote like this.[^1]&#10;&#10;[^1]: Defined at the bottom.">${esc(post.body)}</textarea>
         <div class="preview-pane"><div class="preview-label">Live preview</div><div id="preview" class="post-body"></div></div>
+      </div>
+      <div class="editor-meta">
+        <div class="counts"><span id="wcWords">0 words</span><span id="wcChars">0 chars</span><span id="wcRead">~0 min read</span></div>
+        <span class="autosave" id="autosaveStatus"></span>
       </div>
       <div class="schedule-box">
         <label>Schedule (optional) — set a future date to auto-publish</label>
@@ -941,10 +1302,92 @@ async function viewEditor(editId){
     </div>`;
   renderCoverArea();
   const bodyEl=document.getElementById("body"),prev=document.getElementById("preview");
+  const titleEl=document.getElementById("title"),tagsEl=document.getElementById("tags");
   let t;
-  async function updatePreview(){try{const r=await api("/admin/preview",{method:"POST",body:JSON.stringify({body:bodyEl.value})});prev.innerHTML=r.html||'<span style="color:var(--faint)">nothing yet…</span>'}catch{}}
-  bodyEl.oninput=()=>{clearTimeout(t);t=setTimeout(updatePreview,300)};
+
+  // --- live preview: render server-side (so callouts/footnotes match), then
+  //     run the same client enhancements readers get (highlight + copy + lightbox)
+  async function updatePreview(){
+    try{
+      const r=await api("/admin/preview",{method:"POST",body:JSON.stringify({body:bodyEl.value})});
+      prev.innerHTML=r.html||'<span style="color:var(--faint)">nothing yet…</span>';
+      if(r.html)enhancePostBody(prev);
+    }catch{}
+  }
+
+  // --- word / character count + reading-time estimate (200 wpm) ---
+  function updateCounts(){
+    const text=bodyEl.value.trim();
+    const words=text?text.split(/\s+/).length:0;
+    const chars=bodyEl.value.length;
+    const mins=Math.max(1,Math.round(words/200));
+    document.getElementById("wcWords").textContent=`${words.toLocaleString()} word${words===1?"":"s"}`;
+    document.getElementById("wcChars").textContent=`${chars.toLocaleString()} chars`;
+    document.getElementById("wcRead").textContent=`~${mins} min read`;
+  }
+
+  // --- autosave to localStorage (per draft key), debounced. This is a local
+  //     safety net for unsaved work — separate from the server "Save draft".
+  const draftKey="tl_draft_"+(editId||"new");
+  const statusEl=document.getElementById("autosaveStatus");
+  let autosaveTimer;
+  function snapshot(){return JSON.stringify({title:titleEl.value,tags:tagsEl.value,body:bodyEl.value,cover:pendingCoverUrl,at:Date.now()})}
+  function doAutosave(){
+    try{
+      localStorage.setItem(draftKey,snapshot());
+      statusEl.className="autosave saved";
+      statusEl.innerHTML=`<span class="dot"></span>Saved locally · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`;
+    }catch{}
+  }
+  function scheduleAutosave(){
+    statusEl.className="autosave";
+    statusEl.innerHTML=`<span class="dot"></span>Editing…`;
+    clearTimeout(autosaveTimer);
+    autosaveTimer=setTimeout(doAutosave,1200);
+  }
+  window.__clearDraft=()=>{try{localStorage.removeItem(draftKey)}catch{}};
+
+  // --- offer to restore a newer local draft if one exists and differs ---
+  (function offerRestore(){
+    let saved;try{saved=JSON.parse(localStorage.getItem(draftKey)||"null")}catch{saved=null}
+    if(!saved)return;
+    const sameAsLoaded=saved.title===titleEl.value&&saved.body===bodyEl.value&&saved.tags===tagsEl.value;
+    if(sameAsLoaded){return}
+    const when=saved.at?new Date(saved.at).toLocaleString([],{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"earlier";
+    document.getElementById("restoreSlot").innerHTML=`
+      <div class="restore-banner">
+        <span>Found an unsaved local draft from ${when}.</span>
+        <div class="ra">
+          <button id="restoreYes">Restore it</button>
+          <button class="dismiss" id="restoreNo">Discard</button>
+        </div>
+      </div>`;
+    document.getElementById("restoreYes").onclick=()=>{
+      titleEl.value=saved.title||"";tagsEl.value=saved.tags||"";bodyEl.value=saved.body||"";
+      if(saved.cover){pendingCoverUrl=saved.cover;renderCoverArea()}
+      document.getElementById("restoreSlot").innerHTML="";
+      updatePreview();updateCounts();showToast("Local draft restored");
+    };
+    document.getElementById("restoreNo").onclick=()=>{
+      window.__clearDraft();document.getElementById("restoreSlot").innerHTML="";
+    };
+  })();
+
+  bodyEl.oninput=()=>{clearTimeout(t);t=setTimeout(updatePreview,300);updateCounts();scheduleAutosave()};
+  titleEl.oninput=scheduleAutosave;
+  tagsEl.oninput=scheduleAutosave;
   updatePreview();
+  updateCounts();
+
+  // --- formatting helpers (toolbar + keyboard shortcuts) ---
+  window.fmt=(kind)=>applyFormat(bodyEl,kind,updatePreview,updateCounts,scheduleAutosave);
+  bodyEl.addEventListener("keydown",(e)=>{
+    if(!(e.ctrlKey||e.metaKey))return;
+    const k=e.key.toLowerCase();
+    if(k==="b"){e.preventDefault();window.fmt("bold")}
+    else if(k==="i"){e.preventDefault();window.fmt("italic")}
+    else if(k==="k"){e.preventDefault();window.fmt("link")}
+  });
 
   document.getElementById("inlineImgInput").onchange=async(e)=>{
     const file=e.target.files[0];if(!file)return;
@@ -1035,6 +1478,7 @@ async function savePost(editId,action){
   try{
     if(editId)await api("/admin/posts/"+editId,{method:"PUT",body:JSON.stringify(payload)});
     else await api("/admin/posts",{method:"POST",body:JSON.stringify(payload)});
+    if(window.__clearDraft)window.__clearDraft();
     showToast(action==="draft"?"Draft saved":action==="schedule"?"Post scheduled":"Published");
     go("/admin");
   }catch(e){

@@ -46,6 +46,67 @@ import { startScheduler } from "./scheduler.js";
 import { upload } from "./upload.js";
 import { buildRssFeed } from "./rss.js";
 
+// ---------------------------------------------------------------------------
+// Markdown rendering — a small layer on top of `marked`:
+//   • GitHub-style callouts:  > [!note] / [!tip] / [!warn]  (first line of a
+//     blockquote) become styled <div class="callout">…</div> boxes.
+//   • Footnotes:  text[^1] … then  [^1]: the note   at the bottom.
+//   • Code fences keep their language class so highlight.js can colour them
+//     on the client (rendered monochrome by the page CSS).
+// renderMarkdown() is the single entry point used by both the live preview
+// and the published-post endpoint, so writing and reading always match.
+// ---------------------------------------------------------------------------
+const CALLOUT_META = {
+  note: { cls: "", label: "Note" },
+  info: { cls: "", label: "Info" },
+  tip:  { cls: "tip", label: "Tip" },
+  warn: { cls: "warn", label: "Warning" },
+  warning: { cls: "warn", label: "Warning" },
+};
+
+function renderMarkdown(src) {
+  src = (src || "").toString();
+
+  // --- collect footnote definitions, strip them from the body ---
+  const notes = {};
+  src = src.replace(/^\[\^([^\]]+)\]:\s?(.*(?:\n(?! *\[\^).*)*)/gm, (_m, id, text) => {
+    notes[id] = text.trim();
+    return "";
+  });
+
+  let html = marked.parse(src);
+
+  // --- callouts: a blockquote whose first line is [!type] ---
+  html = html.replace(
+    /<blockquote>\s*<p>\s*\[!(\w+)\]\s*(<br\s*\/?>)?\s*([\s\S]*?)<\/blockquote>/gi,
+    (full, type, _br, inner) => {
+      const meta = CALLOUT_META[type.toLowerCase()];
+      if (!meta) return full;
+      const body = inner.replace(/<\/p>\s*$/i, "").trim();
+      return `<div class="callout ${meta.cls}"><div class="callout-head" data-icon="${type.toLowerCase()}">${meta.label}</div><p>${body}</p></div>`;
+    }
+  );
+
+  // --- footnote references: text[^id] -> superscript link ---
+  const order = [];
+  html = html.replace(/\[\^([^\]]+)\]/g, (_m, id) => {
+    if (!notes[id]) return _m;
+    if (!order.includes(id)) order.push(id);
+    const n = order.indexOf(id) + 1;
+    return `<sup class="fnref" id="fnref-${id}"><a href="#fn-${id}">${n}</a></sup>`;
+  });
+
+  // --- footnote list at the end ---
+  if (order.length) {
+    const items = order.map((id) =>
+      `<li id="fn-${id}">${marked.parseInline(notes[id])} <a class="fn-back" href="#fnref-${id}" title="Back to text">↩</a></li>`
+    ).join("");
+    html += `<div class="footnotes"><div class="fn-title">Footnotes</div><ol>${items}</ol></div>`;
+  }
+
+  return html;
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -170,7 +231,7 @@ app.get("/api/posts/:slug", async (req, res) => {
   res.json({
     ...post,
     views,
-    html: marked.parse(post.body),
+    html: renderMarkdown(post.body),
     related,
     comments,
     reactions,
@@ -290,7 +351,7 @@ app.get("/api/admin/posts/:id", requireAuth, async (req, res) => {
 // Live preview: render Markdown without saving anything.
 app.post("/api/admin/preview", requireAuth, (req, res) => {
   const body = (req.body?.body || "").toString();
-  res.json({ html: marked.parse(body) });
+  res.json({ html: renderMarkdown(body) });
 });
 
 // Image upload — used for both the cover-image picker and inline images
@@ -299,7 +360,7 @@ app.post("/api/admin/preview", requireAuth, (req, res) => {
 // disk, then we hand back the public URL the front-end either stores as
 // coverImage or splices into the body as ![](url).
 app.post("/api/admin/upload", requireAuth, (req, res) => {
-  upload.single("image")(req, res, (err) => {
+  upload.single("file")(req, res, (err) => {
     if (err) return res.status(400).json({ error: err.message || "Upload failed" });
     if (!req.file) return res.status(400).json({ error: "No image received" });
     res.json({ url: `/uploads/${req.file.filename}` });
@@ -345,6 +406,29 @@ app.delete("/api/admin/posts/:id", requireAuth, async (req, res) => {
   const ok = await db.deletePost(Number(req.params.id));
   if (!ok) return res.status(404).json({ error: "Post not found" });
   res.json({ ok: true });
+});
+
+// Bulk actions from the dashboard: delete several posts at once, or move a
+// set to draft/published in one request. Each id is processed with the same
+// single-item db helpers, so behaviour stays identical to acting one by one.
+app.post("/api/admin/posts/bulk", requireAuth, async (req, res) => {
+  const { ids, action } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: "No posts selected" });
+  }
+  const numIds = ids.map(Number).filter((n) => Number.isInteger(n));
+  let affected = 0;
+  if (action === "delete") {
+    for (const id of numIds) if (await db.deletePost(id)) affected++;
+  } else if (action === "publish" || action === "draft") {
+    const fields = action === "publish"
+      ? { status: "published", publishAt: null }
+      : { status: "draft", publishAt: null };
+    for (const id of numIds) if (await db.updatePost(id, fields)) affected++;
+  } else {
+    return res.status(400).json({ error: "Unknown bulk action" });
+  }
+  res.json({ ok: true, affected });
 });
 
 // SPA fallback.

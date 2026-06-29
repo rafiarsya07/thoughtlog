@@ -8,14 +8,18 @@ writing is behind authentication.
 ## Features
 
 - **Markdown editor with live preview** — rendered output side-by-side as you type
+- **Formatting toolbar + shortcuts** — bold/italic/heading/link/quote/code/list buttons, plus Ctrl/Cmd+B/I/K
+- **Local autosave + word count** — drafts are saved to the browser as you write, with a restore prompt if you come back; live word/character count and reading-time estimate
 - **Three publish modes** — publish now, save as draft, or **schedule** for a future date
 - **Scheduled publishing** — a background job flips scheduled posts live when their time comes
 - **Full edit flow** — open any post, change content or status, re-publish
-- **Admin dashboard** — counts for total / published / scheduled / drafts, plus total views
+- **Admin dashboard** — counts for total / published / scheduled / drafts, total views, comments and subscribers; **filter by status, search, and bulk publish / draft / delete**
+- **Reader comfort** — a floating Reading panel (font size, column width, serif/sans, light/dark), table of contents, reading-progress bar, and back-to-top
+- **Rich article rendering** — copy-to-clipboard code blocks with syntax highlighting, click-to-zoom image lightbox, GitHub-style callouts (`> [!note]` / `[!tip]` / `[!warn]`), and footnotes (`text[^1]` … `[^1]: …`)
 - **Tags** — tag cloud on the home page, click any tag to filter
 - **Related posts** — shown under each article based on shared tags
-- **Reading time** — estimated automatically from word count
-- **Cover images**, **full-text search**, **per-post view tracking**
+- **Reactions, ratings & comments** — emoji reactions and star ratings (no login), threaded reader comments
+- **Cover images**, **full-text search**, **per-post view tracking**, **RSS feed**, **email subscriptions**
 
 ## What it demonstrates
 
