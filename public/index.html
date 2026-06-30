@@ -73,6 +73,7 @@
   .nav button:hover{color:var(--accent);background:var(--accent-soft)}
   .nav button.primary{background:var(--ink);color:#fff}
   .nav button.primary:hover{background:var(--accent);color:#fff}
+  .nav button span.short{display:none}
 
   main.wrap{padding-top:40px;padding-bottom:24px;min-height:60vh}
 
@@ -401,27 +402,48 @@
   .comment-inline-box .btn-sm.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   .comment-inline-box .btn-sm:hover{border-color:var(--accent)}
 
-  /* ---------- newsletter ---------- */
-  .newsletter-box{
-    background:var(--accent);color:#fff;border-radius:var(--radius-lg);padding:30px 32px;margin:40px 0;
-    display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:space-between;
+  /* ---------- subscribe modal ---------- */
+
+  .sub-overlay{
+    position:fixed;inset:0;background:rgba(28,29,26,.45);backdrop-filter:blur(3px);
+    z-index:70;display:flex;align-items:center;justify-content:center;padding:20px;
+    opacity:0;pointer-events:none;transition:opacity .22s var(--ease);
   }
-  .newsletter-box .copy{flex:1;min-width:200px}
-  .newsletter-box h4{font-family:"Fraunces",serif;font-size:19px;font-weight:600;margin-bottom:4px}
-  .newsletter-box p{font-size:14px;opacity:.85;font-family:"JetBrains Mono",monospace}
-  .newsletter-form{display:flex;gap:8px;flex-wrap:wrap}
-  .newsletter-form input{
-    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;
-    padding:10px 14px;border-radius:var(--radius);font-family:"JetBrains Mono",monospace;font-size:13px;
-    min-width:200px;margin-bottom:0;
+  .sub-overlay.open{opacity:1;pointer-events:auto}
+  .sub-modal{
+    background:var(--bg-raised);border:1px solid var(--line);border-radius:20px;
+    padding:36px 32px 28px;max-width:420px;width:100%;position:relative;
+    box-shadow:var(--shadow-lg);transform:translateY(14px) scale(.97);
+    transition:transform .25s var(--ease);
   }
-  .newsletter-form input::placeholder{color:rgba(255,255,255,.6)}
-  .newsletter-form input:focus{outline:none;box-shadow:0 0 0 2px rgba(255,255,255,.4)}
-  .newsletter-form button{
-    background:#fff;color:var(--accent);border:none;padding:10px 18px;border-radius:var(--radius);
-    font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;
+  .sub-overlay.open .sub-modal{transform:translateY(0) scale(1)}
+  .sub-modal-close{
+    position:absolute;top:14px;right:14px;background:none;border:none;cursor:pointer;
+    color:var(--faint);padding:6px;border-radius:8px;display:flex;transition:color .15s,background .15s;
   }
-  .newsletter-form button:hover{opacity:.88}
+  .sub-modal-close:hover{color:var(--ink);background:var(--bg)}
+  .sub-modal-close svg{width:18px;height:18px}
+  .sub-modal-icon{
+    width:44px;height:44px;border-radius:12px;background:var(--accent-soft);
+    display:flex;align-items:center;justify-content:center;margin-bottom:16px;
+  }
+  .sub-modal-icon svg{width:22px;height:22px;color:var(--accent)}
+  .sub-modal h3{font-family:"Fraunces",serif;font-size:22px;font-weight:600;margin-bottom:6px}
+  .sub-modal p{font-size:14px;color:var(--ink-soft);font-family:"JetBrains Mono",monospace;line-height:1.6;margin-bottom:22px}
+  .sub-modal-form{display:flex;flex-direction:column;gap:10px}
+  .sub-modal-form input{font-size:14px;margin-bottom:0}
+  .sub-modal-form button{
+    background:var(--accent);color:#fff;border:none;padding:12px;border-radius:var(--radius);
+    font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:600;cursor:pointer;
+    transition:opacity .15s,transform .15s;
+  }
+  .sub-modal-form button:hover{opacity:.88;transform:translateY(-1px)}
+  .sub-modal-form button:disabled{opacity:.55;transform:none;cursor:default}
+  .sub-modal-note{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--faint);text-align:center;margin-top:12px}
+  .sub-success{text-align:center;padding:12px 0}
+  .sub-success .sub-success-icon{font-size:38px;margin-bottom:10px}
+  .sub-success h4{font-family:"Fraunces",serif;font-size:18px;font-weight:600;margin-bottom:6px}
+  .sub-success p{font-size:13px;color:var(--ink-soft);font-family:"JetBrains Mono",monospace}
   .rss-link{display:inline-flex;align-items:center;gap:5px;color:var(--faint);transition:color .15s}
   .rss-link:hover{color:var(--amber)}
   .rss-link svg{width:13px;height:13px}
@@ -441,6 +463,7 @@
     .stat{min-width:96px;padding:14px 16px}
     .stat .num{font-size:24px}
     .nav button span.full{display:none}
+    .nav button span.short{display:inline}
     .comment-form .row2{grid-template-columns:1fr}
     .comment-body{margin-left:0;margin-top:6px}
     .comment-actions{margin-left:0}
@@ -449,6 +472,8 @@
     .newsletter-box{padding:22px}
     .newsletter-form{width:100%}
     .newsletter-form input{flex:1;min-width:0}
+    .sub-trigger{bottom:72px;left:14px;padding:9px 13px 9px 11px;font-size:11px}
+    .sub-modal{padding:28px 20px 22px}
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -784,9 +809,10 @@ applyTheme(getTheme());
 async function refreshMe(){try{me=await api("/me")}catch{me=null}renderNav()}
 function renderNav(){
   const themeBtn=`<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle dark mode">${getTheme()==="dark"?ICONS.sun:ICONS.moon}</button>`;
+  const subBtn=`<button onclick="openSubModal()" title="Subscribe for updates"><span class="full">Subscribe</span><span class="short">✉</span></button>`;
   nav.innerHTML=(me
-    ?`<button onclick="go('/admin')">Dashboard</button><button onclick="go('/write')">Write</button><button class="primary" onclick="logout()">Sign out</button>`
-    :`<button class="primary" onclick="go('/login')">Sign in</button>`)+themeBtn;
+    ?`<button onclick="go('/admin')"><span class="full">Dashboard</span><span class="short">⊞</span></button><button onclick="go('/write')">Write</button><button class="primary" onclick="logout()"><span class="full">Sign out</span><span class="short">↩</span></button>`
+    :`${subBtn}<button class="primary" onclick="go('/login')">Sign in</button>`)+themeBtn;
 }
 async function logout(){try{await api("/logout",{method:"POST"})}catch{} me=null;renderNav();go("/")}
 
@@ -804,30 +830,71 @@ function skeletonCards(n=4){
     </div>`).join("")}</div>`;
 }
 
-function newsletterBox(){
-  return `<div class="newsletter-box">
-    <div class="copy"><h4>Get new posts by email</h4><p>No spam, just new write-ups when they go up.</p></div>
-    <form class="newsletter-form" id="subForm" onsubmit="event.preventDefault();subscribe()">
-      <input id="subEmail" type="text" placeholder="you@example.com" autocomplete="email"/>
-      <button type="submit" id="subBtn">Subscribe</button>
-    </form>
-  </div>`;
+// Subscribe modal — floats as a fixed button, opens a centred modal on click.
+// Injected once into document.body (not per-page) so it persists across SPA routes.
+function mountSubscribeModal(){
+  if(document.getElementById("subOverlay"))return; // already mounted
+  const BELL=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+  const CLOSE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>`;
+  document.body.insertAdjacentHTML("beforeend",`
+    <div class="sub-overlay" id="subOverlay" role="dialog" aria-modal="true" aria-label="Subscribe to ThoughtLog">
+      <div class="sub-modal" id="subModal">
+        <button class="sub-modal-close" onclick="closeSubModal()" aria-label="Close">${CLOSE}</button>
+        <div class="sub-modal-icon">${BELL}</div>
+        <h3>Stay in the loop</h3>
+        <p>Get a short email whenever a new write-up goes up — notes on what I build and why. No spam, unsubscribe any time.</p>
+        <div class="sub-modal-form" id="subFormWrap">
+          <input id="subEmailModal" type="email" placeholder="you@example.com" autocomplete="email"/>
+          <button id="subBtnModal" onclick="submitSubscribeModal()">Subscribe →</button>
+        </div>
+        <p class="sub-modal-note">No spam · Unsubscribe any time</p>
+      </div>
+    </div>`);
+  // close on backdrop click
+  document.getElementById("subOverlay").addEventListener("click",(e)=>{
+    if(e.target===document.getElementById("subOverlay"))closeSubModal();
+  });
+  // close on Escape
+  document.addEventListener("keydown",(e)=>{
+    if(e.key==="Escape"&&document.getElementById("subOverlay")?.classList.contains("open"))closeSubModal();
+  });
+  // enter key in input
+  document.getElementById("subEmailModal").addEventListener("keydown",(e)=>{
+    if(e.key==="Enter")submitSubscribeModal();
+  });
 }
-async function subscribe(){
-  const input=document.getElementById("subEmail"),btn=document.getElementById("subBtn");
+function openSubModal(){
+  document.getElementById("subOverlay").classList.add("open");
+  setTimeout(()=>document.getElementById("subEmailModal")?.focus(),60);
+}
+function closeSubModal(){
+  document.getElementById("subOverlay").classList.remove("open");
+}
+async function submitSubscribeModal(){
+  const input=document.getElementById("subEmailModal");
+  const btn=document.getElementById("subBtnModal");
   const email=input.value.trim();
-  if(!email){showToast("Enter an email address",true);return}
-  btn.disabled=true;const original=btn.textContent;btn.textContent="…";
+  if(!email){input.focus();return}
+  btn.disabled=true;const orig=btn.innerHTML;btn.innerHTML="<span class='spin'></span> Subscribing…";
   try{
     await api("/subscribe",{method:"POST",body:JSON.stringify({email})});
-    input.value="";
-    showToast("Subscribed — thanks!");
+    // success state — swap form for a thank-you message
+    document.getElementById("subFormWrap").outerHTML=`
+      <div class="sub-success">
+        <div class="sub-success-icon">🎉</div>
+        <h4>You're in!</h4>
+        <p>Check your inbox — you'll get an email next time a new post goes up.</p>
+      </div>`;
+    document.querySelector(".sub-modal-note").style.display="none";
+    setTimeout(closeSubModal,2800);
   }catch(e){
+    btn.disabled=false;btn.innerHTML=orig;
     showToast(e.error||"Could not subscribe",true);
-  }finally{
-    btn.disabled=false;btn.textContent=original;
   }
 }
+// Legacy inline form (used nowhere now but kept so any cached page doesn't crash)
+function newsletterBox(){return "";}
+async function subscribe(){}
 
 async function viewList(searchTerm){
   if(currentController)currentController.abort("navigated-away");
@@ -1809,7 +1876,7 @@ function route(){
   if(path.startsWith("/edit/"))return viewEditor(Number(path.slice(6)));
   app.innerHTML=`<div class="empty"><div class="empty-icon">?</div>page not found<button class="btn ghost small" onclick="go('/')">Back home</button></div>`;
 }
-(async function(){applyReaderPrefs();await refreshMe();route()})();
+(async function(){applyReaderPrefs();mountSubscribeModal();await refreshMe();route()})();
 </script>
 </body>
 </html>

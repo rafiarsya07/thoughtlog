@@ -41,9 +41,11 @@ import { dirname, join } from "path";
 import crypto from "crypto";
 
 import * as db from "./db.js";
-import { hashPassword, verifyPassword, signToken, requireAuth } from "./auth.js";
+import { hashPassword, verifyPassword, signToken, requireAuth, isAuthed } from "./auth.js";
 import { startScheduler } from "./scheduler.js";
 import { upload } from "./upload.js";
+import { UPLOAD_DIR } from "./upload.js";
+import { sendWelcome, notifyNewPost } from "./mailer.js";
 import { buildRssFeed } from "./rss.js";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +116,10 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(express.static(join(__dirname, "..", "public")));
+// Uploaded images live in server/uploads/, outside the public dir, so they
+// need their own static mount. Without this, every /uploads/* URL 404s and
+// inline/cover images render broken.
+app.use("/uploads", express.static(UPLOAD_DIR, { maxAge: "30d", immutable: true }));
 
 // Anonymous visitor ID: a long-lived random cookie, separate from the
 // view-tracking cookie. This is what lets a single browser "have" a set of
@@ -130,6 +136,8 @@ function ensureVisitorId(req, res) {
 }
 
 const ALLOWED_EMOJI = new Set(["👍", "❤️", "🔥", "😮", "😂", "🤔"]);
+// Name shown on admin replies in the comment thread.
+const ADMIN_DISPLAY_NAME = process.env.ADMIN_DISPLAY_NAME || "Rafi";
 
 function slugify(title) {
   return title.toLowerCase().trim()
@@ -267,6 +275,58 @@ app.post("/api/posts/:slug/comments", async (req, res) => {
   res.status(201).json(comment);
 });
 
+// Edit your own comment. Anonymous authors prove ownership with the edit
+// token handed back when they posted (kept in their browser's localStorage).
+// A logged-in admin can edit any comment without a token.
+app.patch("/api/comments/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const { body, token } = req.body || {};
+  if (!body?.trim()) return res.status(400).json({ error: "Comment can't be empty" });
+  if (body.trim().length > 2000) return res.status(400).json({ error: "Comment is too long (2000 characters max)" });
+
+  const admin = isAuthed(req);
+  if (!admin && !token) return res.status(403).json({ error: "Not allowed to edit this comment" });
+
+  const updated = await db.updateComment(id, body.trim(), { token, admin });
+  if (!updated) return res.status(403).json({ error: "Not allowed to edit this comment" });
+  res.json(updated);
+});
+
+// Delete your own comment (token) — or any comment if you're the admin.
+app.delete("/api/comments/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const token = req.body?.token || req.query?.token;
+  if (isAuthed(req)) {
+    const ok = await db.deleteComment(id);
+    return ok ? res.json({ ok: true }) : res.status(404).json({ error: "Comment not found" });
+  }
+  if (!token) return res.status(403).json({ error: "Not allowed to delete this comment" });
+  const ok = await db.deleteCommentByToken(id, token);
+  return ok ? res.json({ ok: true }) : res.status(403).json({ error: "Not allowed to delete this comment" });
+});
+
+// Admin reply to a comment (one level deep). Shows up nested under the parent
+// with an "Author" badge so readers can see when you've answered them.
+app.post("/api/admin/comments/:id/reply", requireAuth, async (req, res) => {
+  const parentId = Number(req.params.id);
+  const { body } = req.body || {};
+  if (!body?.trim()) return res.status(400).json({ error: "Reply can't be empty" });
+
+  const parent = await db.getCommentById(parentId);
+  if (!parent) return res.status(404).json({ error: "Comment not found" });
+
+  const reply = await db.createComment({
+    postId: parent.post_id,
+    author: ADMIN_DISPLAY_NAME,
+    email: null,
+    body: body.trim(),
+    rating: null,
+    isAdmin: true,
+    parentId,
+  });
+  res.status(201).json(reply);
+});
+
 // --- Reactions (no login required) ------------------------------------------
 
 app.post("/api/posts/:slug/react", async (req, res) => {
@@ -291,8 +351,25 @@ app.post("/api/subscribe", async (req, res) => {
 
   const ok = await db.addSubscriber(email);
   if (!ok) return res.status(500).json({ error: "Could not save your subscription" });
+  // Fire-and-forget welcome email (no-op if SMTP isn't configured).
+  sendWelcome(email).catch(() => {});
   res.status(201).json({ ok: true });
 });
+
+// Notify subscribers about a post the first time it becomes published.
+// Idempotent via the posts.notified flag, so calling it more than once for
+// the same post is harmless. Runs in the background — never blocks the response.
+async function maybeNotifyPublished(post) {
+  if (!post || post.status !== "published" || post.notified) return;
+  await db.markNotified(post.id); // mark first to avoid a double-send race
+  try {
+    const emails = await db.getSubscriberEmails();
+    const full = await db.getPostById(post.id);
+    await notifyNewPost(full || post, emails);
+  } catch (e) {
+    console.warn("[notify] failed:", e.message);
+  }
+}
 
 // =========================== AUTH ==========================================
 
@@ -381,6 +458,7 @@ app.post("/api/admin/posts", requireAuth, async (req, res) => {
     title: title.trim(), slug, body,
     tags: parseTags(tags), status, publishAt: pa, coverImage,
   });
+  maybeNotifyPublished(post); // background, no await
   res.status(201).json(post);
 });
 
@@ -399,6 +477,7 @@ app.put("/api/admin/posts/:id", requireAuth, async (req, res) => {
   }
   const updated = await db.updatePost(id, fields);
   if (!updated) return res.status(404).json({ error: "Post not found" });
+  maybeNotifyPublished(updated); // background, no await
   res.json(updated);
 });
 

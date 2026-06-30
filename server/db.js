@@ -428,6 +428,13 @@ function columnFor(key) {
 
 function stripBody(p) {
   const { body, ...rest } = p;
-  const excerpt = (body || "").replace(/[#*`>_]/g, "").slice(0, 160).trim();
+  const excerpt = (body || "")
+    .replace(/!\[.*?\]\(.*?\)/g, "")   // remove images ![alt](url)
+    .replace(/\[.*?\]\(.*?\)/g, "")    // remove links [text](url)
+    .replace(/[#*`>_~]/g, "")          // remove markdown symbols
+    .replace(/\s+/g, " ")              // collapse whitespace
+    .trim()
+    .slice(0, 160)
+    .trim();
   return { ...rest, excerpt: excerpt + ((body || "").length > 160 ? "…" : "") };
 }

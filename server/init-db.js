@@ -58,6 +58,21 @@ CREATE TABLE IF NOT EXISTS comments (
 );
 CREATE INDEX IF NOT EXISTS comments_post_idx ON comments (post_id, created_at);
 
+-- A per-comment secret so an anonymous author can edit or delete their own
+-- comment from the same browser (the raw token is handed back once and kept
+-- in the visitor's localStorage; only its presence is checked here).
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS edit_token TEXT;
+-- Admin replies live in the same table: is_admin marks them, parent_id nests
+-- them under the comment they answer (one level deep).
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE;
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS comments_parent_idx ON comments (parent_id);
+
+-- Whether subscribers have already been emailed about this post, so flipping
+-- a post to published only ever fans out one notification.
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS notified BOOLEAN DEFAULT FALSE;
+
 -- Reactions: one emoji per (post, anonymous visitor). The visitor is
 -- identified by a random ID stored in a long-lived cookie (see auth.js /
 -- index.js), not by account — so reactions are per-browser, not per-person,
