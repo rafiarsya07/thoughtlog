@@ -305,12 +305,44 @@
   .reaction-btn{
     font-family:"JetBrains Mono",monospace;font-size:13px;padding:8px 14px;border-radius:20px;
     border:1.5px solid var(--line);background:var(--paper);cursor:pointer;display:inline-flex;align-items:center;gap:7px;
-    transition:all .18s var(--ease);
+    transition:border-color .18s var(--ease),background .18s var(--ease),color .18s var(--ease),transform .18s var(--ease),box-shadow .18s var(--ease);
+    position:relative;
   }
   .reaction-btn:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:var(--shadow-sm)}
+  .reaction-btn:active{transform:translateY(0) scale(.94)}
   .reaction-btn.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
-  .reaction-btn .emoji{font-size:16px}
-  .reaction-btn .count{font-weight:600;min-width:10px;text-align:center}
+  .reaction-btn .emoji{font-size:16px;display:inline-block;transition:transform .18s var(--ease)}
+  .reaction-btn .count{font-weight:600;min-width:10px;text-align:center;font-variant-numeric:tabular-nums}
+  .reaction-btn:hover .emoji{transform:scale(1.18) rotate(-6deg)}
+  /* the satisfying pop when you click/toggle a reaction on */
+  .reaction-btn.pop .emoji{animation:reactPop .42s var(--ease)}
+  @keyframes reactPop{
+    0%{transform:scale(1)}
+    35%{transform:scale(1.5) rotate(8deg)}
+    60%{transform:scale(.88) rotate(-5deg)}
+    100%{transform:scale(1) rotate(0)}
+  }
+  /* a single emoji that floats up and fades, Facebook-style, on activate */
+  .react-float{
+    position:absolute;left:50%;top:-2px;transform:translateX(-50%);
+    font-size:20px;pointer-events:none;z-index:5;will-change:transform,opacity;
+    animation:reactFloat .9s var(--ease) forwards;
+  }
+  @keyframes reactFloat{
+    0%{opacity:0;transform:translate(-50%,4px) scale(.6)}
+    20%{opacity:1;transform:translate(-50%,-10px) scale(1.15)}
+    100%{opacity:0;transform:translate(-50%,-46px) scale(1)}
+  }
+  /* faint ring burst behind the button when activated */
+  .react-ring{
+    position:absolute;inset:0;border-radius:20px;border:2px solid var(--accent);
+    pointer-events:none;opacity:.7;animation:reactRing .5s var(--ease) forwards;
+  }
+  @keyframes reactRing{0%{transform:scale(1);opacity:.55}100%{transform:scale(1.35);opacity:0}}
+  @media(prefers-reduced-motion:reduce){
+    .reaction-btn.pop .emoji{animation:none}
+    .react-float,.react-ring{display:none}
+  }
 
   /* ---------- rating ---------- */
   .rating-display{display:flex;align-items:center;gap:8px;margin-bottom:4px}
@@ -338,8 +370,36 @@
   }
   .comment-author{font-weight:600;font-size:15px}
   .comment-date{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--faint)}
-  .comment-body{color:var(--ink-soft);font-size:16px;line-height:1.55;margin-left:42px}
+  .comment-body{color:var(--ink-soft);font-size:16px;line-height:1.55;margin-left:42px;white-space:pre-wrap;word-wrap:break-word}
   .no-comments{text-align:center;padding:32px 0;color:var(--faint);font-family:"JetBrains Mono",monospace;font-size:13px}
+  /* admin badge on replies from the author */
+  .comment-badge{font-family:"JetBrains Mono",monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;
+    background:var(--accent);color:#fff;padding:2px 7px;border-radius:10px;line-height:1.4}
+  .comment-edited{font-family:"JetBrains Mono",monospace;font-size:9.5px;color:var(--faint);font-style:italic}
+  /* per-comment action links (reply / edit / delete) */
+  .comment-actions{display:flex;gap:14px;margin:8px 0 0 42px}
+  .comment-actions button{
+    background:none;border:none;cursor:pointer;padding:0;color:var(--faint);
+    font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.03em;transition:color .15s;
+  }
+  .comment-actions button:hover{color:var(--accent)}
+  .comment-actions button.danger:hover{color:var(--danger)}
+  /* admin reply + nested replies live indented under their parent */
+  .comment-replies{margin:14px 0 0 42px;padding-left:16px;border-left:2px solid var(--line-soft)}
+  .comment-replies .comment-item{padding:14px 0}
+  .comment-replies .comment-body,.comment-replies .comment-actions{margin-left:34px}
+  .comment-item.is-admin>.comment-body{color:var(--ink)}
+  .comment-item.is-admin .comment-avatar{background:var(--accent);color:#fff}
+  /* inline edit / reply boxes */
+  .comment-inline-box{margin:10px 0 0 42px}
+  .comment-inline-box textarea{min-height:64px;margin-bottom:8px}
+  .comment-inline-box .row-btns{display:flex;gap:8px}
+  .comment-inline-box .btn-sm{
+    font-family:"JetBrains Mono",monospace;font-size:12px;padding:6px 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink-soft);transition:all .15s;
+  }
+  .comment-inline-box .btn-sm.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .comment-inline-box .btn-sm:hover{border-color:var(--accent)}
 
   /* ---------- newsletter ---------- */
   .newsletter-box{
@@ -383,6 +443,9 @@
     .nav button span.full{display:none}
     .comment-form .row2{grid-template-columns:1fr}
     .comment-body{margin-left:0;margin-top:6px}
+    .comment-actions{margin-left:0}
+    .comment-replies{margin-left:14px;padding-left:12px}
+    .comment-inline-box{margin-left:0}
     .newsletter-box{padding:22px}
     .newsletter-form{width:100%}
     .newsletter-form input{flex:1;min-width:0}
@@ -662,6 +725,25 @@ async function api(path,opts={},signal){
 
 function fmtDate(ts){return new Date(ts).toLocaleDateString("en-US",{year:"numeric",month:"short",day:"numeric"})}
 function fmtDateTime(ts){return new Date(ts).toLocaleString("en-US",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+// Relative time like "just now", "5m ago", "3h ago", "2d ago"; falls back to a
+// full date past a week. The full timestamp goes in the title attribute.
+function timeAgo(ts){
+  const s=Math.floor((Date.now()-ts)/1000);
+  if(s<45)return"just now";
+  if(s<90)return"1m ago";
+  const m=Math.floor(s/60); if(m<60)return m+"m ago";
+  const h=Math.floor(m/60); if(h<24)return h+"h ago";
+  const d=Math.floor(h/24); if(d<7)return d+"d ago";
+  return fmtDate(ts);
+}
+// Anonymous comment ownership: when you post a comment the server hands back a
+// one-time edit token; we keep it here, keyed by comment id, so the same
+// browser can later edit or delete that comment. Cleared if you clear storage.
+const COMMENT_TOKENS_KEY="tl_comment_tokens";
+function getCommentTokens(){try{return JSON.parse(localStorage.getItem(COMMENT_TOKENS_KEY)||"{}")}catch{return{}}}
+function saveCommentToken(id,token){const t=getCommentTokens();t[id]=token;localStorage.setItem(COMMENT_TOKENS_KEY,JSON.stringify(t))}
+function tokenFor(id){return getCommentTokens()[id]||null}
+function dropCommentToken(id){const t=getCommentTokens();delete t[id];localStorage.setItem(COMMENT_TOKENS_KEY,JSON.stringify(t))}
 function esc(s){const d=document.createElement("div");d.textContent=s==null?"":s;return d.innerHTML}
 
 const ICONS={
@@ -836,24 +918,49 @@ function copyPostLink(url){
   navigator.clipboard?.writeText(url).then(()=>showToast("Link copied")).catch(()=>showToast("Could not copy link",true));
 }
 
+const REACTION_EMOJI=["👍","❤️","🔥","😮","😂","🤔"];
 function reactionsRow(slug,reactions,mine){
-  const EMOJI=["👍","❤️","🔥","😮","😂","🤔"];
-  return `<div class="reactions-row" id="reactions">${EMOJI.map(e=>{
+  return `<div class="reactions-row" id="reactions" data-slug="${slug}">${REACTION_EMOJI.map(e=>{
     const count=reactions[e]||0;
     const active=mine.includes(e)?" active":"";
-    return `<button class="reaction-btn${active}" onclick="react('${slug}','${e}')"><span class="emoji">${e}</span>${count>0?`<span class="count">${count}</span>`:""}</button>`;
+    return `<button class="reaction-btn${active}" data-emoji="${e}" onclick="react('${slug}','${e}')">`+
+      `<span class="emoji">${e}</span>`+
+      `<span class="count"${count>0?"":' style="display:none"'}>${count}</span></button>`;
   }).join("")}</div>`;
 }
+// Update one reaction button in place (no full re-render) so the click
+// animation can play. Plays a pop + floating emoji + ring burst when turning a
+// reaction ON, Facebook-style.
 async function react(slug,emoji){
-  const el=document.getElementById("reactions");
+  const row=document.getElementById("reactions");
+  const btn=row?.querySelector(`.reaction-btn[data-emoji="${CSS.escape(emoji)}"]`);
+  if(!btn)return;
   try{
     const r=await api("/posts/"+slug+"/react",{method:"POST",body:JSON.stringify({emoji})});
-    const currentlyActive=[...(el?.querySelectorAll(".reaction-btn.active .emoji")||[])].map(x=>x.textContent);
-    const nextMine=r.added
-      ? [...currentlyActive, emoji]
-      : currentlyActive.filter((x)=>x!==emoji);
-    if(el)el.outerHTML=reactionsRow(slug,r.counts,nextMine);
+    // sync active state + count for this button from the server's fresh counts
+    btn.classList.toggle("active",r.added);
+    const countEl=btn.querySelector(".count");
+    const n=r.counts[emoji]||0;
+    countEl.textContent=n;
+    countEl.style.display=n>0?"":"none";
+    // also refresh sibling counts in case they changed (rare, but cheap)
+    REACTION_EMOJI.forEach(e=>{
+      if(e===emoji)return;
+      const b=row.querySelector(`.reaction-btn[data-emoji="${CSS.escape(e)}"] .count`);
+      if(b){const c=r.counts[e]||0;b.textContent=c;b.style.display=c>0?"":"none";}
+    });
+    // animation: pop always; float + ring only when activating
+    btn.classList.remove("pop");void btn.offsetWidth;btn.classList.add("pop");
+    if(r.added)spawnReactionBurst(btn,emoji);
   }catch(e){showToast(e.error||"Could not react",true)}
+}
+function spawnReactionBurst(btn,emoji){
+  if(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)return;
+  const float=document.createElement("span");
+  float.className="react-float";float.textContent=emoji;
+  const ring=document.createElement("span");ring.className="react-ring";
+  btn.appendChild(ring);btn.appendChild(float);
+  setTimeout(()=>{float.remove();ring.remove()},950);
 }
 
 function ratingStars(value,max=5){
@@ -876,18 +983,44 @@ function setRating(n){
   });
 }
 
+// Total comment count including nested replies, for the header badge.
+function countComments(comments){
+  return comments.reduce((n,c)=>n+1+(c.replies?countComments(c.replies):0),0);
+}
+// Render a single comment node (and its replies recursively). `mine` = the
+// visitor owns it (has the edit token); `admin` = logged-in author viewing.
+function commentNode(slug,c,{admin}){
+  const mine=!!tokenFor(c.id);
+  const canEdit=admin||mine;
+  const canDelete=admin||mine;
+  const canReply=admin && !c.isAdmin; // author replies to readers, not to self
+  const stars=c.rating?`<span class="rating-stars">${ratingStars(c.rating)}</span>`:"";
+  const badge=c.isAdmin?`<span class="comment-badge">Author</span>`:"";
+  const edited=c.updatedAt&&c.updatedAt>c.createdAt+1500?`<span class="comment-edited">· edited</span>`:"";
+  const actions=[];
+  if(canReply)actions.push(`<button onclick="openReply('${slug}',${c.id})">Reply</button>`);
+  if(canEdit)actions.push(`<button onclick="openEdit(${c.id})">Edit</button>`);
+  if(canDelete)actions.push(`<button class="danger" onclick="deleteComment('${slug}',${c.id})">Delete</button>`);
+  const repliesHtml=(c.replies&&c.replies.length)
+    ?`<div class="comment-replies">${c.replies.map(r=>commentNode(slug,r,{admin})).join("")}</div>`:"";
+  return `<div class="comment-item${c.isAdmin?" is-admin":""}" id="comment-${c.id}" data-id="${c.id}">
+    <div class="comment-head">
+      <div class="comment-avatar">${esc(c.author[0]?.toUpperCase()||"?")}</div>
+      <span class="comment-author">${esc(c.author)}</span>
+      ${badge}${stars}
+      <span class="comment-date" title="${esc(fmtDateTime(c.createdAt))}">${timeAgo(c.createdAt)}</span>
+      ${edited}
+    </div>
+    <div class="comment-body" id="comment-body-${c.id}">${esc(c.body)}</div>
+    ${actions.length?`<div class="comment-actions">${actions.join("")}</div>`:""}
+    <div id="reply-slot-${c.id}"></div>
+    ${repliesHtml}
+  </div>`;
+}
 function commentsSection(slug,comments,rating){
+  const total=countComments(comments);
   const list=comments.length
-    ?comments.map(c=>`
-      <div class="comment-item">
-        <div class="comment-head">
-          <div class="comment-avatar">${esc(c.author[0]?.toUpperCase()||"?")}</div>
-          <span class="comment-author">${esc(c.author)}</span>
-          ${c.rating?`<span class="rating-stars">${ratingStars(c.rating)}</span>`:""}
-          <span class="comment-date">${fmtDate(c.createdAt)}</span>
-        </div>
-        <div class="comment-body">${esc(c.body)}</div>
-      </div>`).join("")
+    ?comments.map(c=>commentNode(slug,c,{admin:!!me})).join("")
     :`<div class="no-comments">No comments yet — be the first to share your thoughts.</div>`;
 
   const ratingHeader=rating.count>0
@@ -895,7 +1028,7 @@ function commentsSection(slug,comments,rating){
     :"";
 
   return `<div class="comments-section">
-    <h3>Comments <span class="count-badge">${comments.length}</span></h3>
+    <h3>Comments <span class="count-badge">${total}</span></h3>
     ${ratingHeader}
     <div class="comment-form">
       <div id="commentErr"></div>
@@ -912,6 +1045,10 @@ function commentsSection(slug,comments,rating){
     <div id="commentsList">${list}</div>
   </div>`;
 }
+function bumpCommentCount(delta){
+  const b=document.querySelector(".comments-section h3 .count-badge");
+  if(b)b.textContent=Math.max(0,Number(b.textContent)+delta);
+}
 async function submitComment(slug){
   const err=document.getElementById("commentErr");err.innerHTML="";
   const author=document.getElementById("cAuthor").value.trim();
@@ -923,21 +1060,12 @@ async function submitComment(slug){
   btn.disabled=true;const original=btn.innerHTML;btn.innerHTML=`<span class="spin"></span> Posting…`;
   try{
     const c=await api("/posts/"+slug+"/comments",{method:"POST",body:JSON.stringify({author,email,body,rating})});
+    if(c.editToken)saveCommentToken(c.id,c.editToken);
     const list=document.getElementById("commentsList");
     const noComments=list.querySelector(".no-comments");
     if(noComments)noComments.remove();
-    list.insertAdjacentHTML("beforeend",`
-      <div class="comment-item">
-        <div class="comment-head">
-          <div class="comment-avatar">${esc(c.author[0]?.toUpperCase()||"?")}</div>
-          <span class="comment-author">${esc(c.author)}</span>
-          ${c.rating?`<span class="rating-stars">${ratingStars(c.rating)}</span>`:""}
-          <span class="comment-date">${fmtDate(c.createdAt)}</span>
-        </div>
-        <div class="comment-body">${esc(c.body)}</div>
-      </div>`);
-    document.querySelector(".comments-section h3 .count-badge").textContent=
-      Number(document.querySelector(".comments-section h3 .count-badge").textContent)+1;
+    list.insertAdjacentHTML("beforeend",commentNode(slug,{...c,replies:[]},{admin:!!me}));
+    bumpCommentCount(1);
     document.getElementById("cAuthor").value="";
     document.getElementById("cEmail").value="";
     document.getElementById("cBody").value="";
@@ -949,6 +1077,90 @@ async function submitComment(slug){
     btn.disabled=false;btn.innerHTML=original;
   }
 }
+
+// --- admin reply ---
+function openReply(slug,parentId){
+  const slot=document.getElementById("reply-slot-"+parentId);
+  if(!slot||slot.querySelector(".comment-inline-box"))return;
+  slot.innerHTML=`<div class="comment-inline-box">
+    <textarea id="replyBody-${parentId}" placeholder="Write a reply…"></textarea>
+    <div class="row-btns">
+      <button class="btn-sm primary" onclick="submitReply('${slug}',${parentId})">Reply</button>
+      <button class="btn-sm" onclick="closeInline('reply-slot-${parentId}')">Cancel</button>
+    </div>
+  </div>`;
+  document.getElementById("replyBody-"+parentId)?.focus();
+}
+async function submitReply(slug,parentId){
+  const ta=document.getElementById("replyBody-"+parentId);
+  const body=ta.value.trim();
+  if(!body)return;
+  try{
+    const reply=await api("/admin/comments/"+parentId+"/reply",{method:"POST",body:JSON.stringify({body})});
+    const parent=document.getElementById("comment-"+parentId);
+    let box=parent.querySelector(":scope > .comment-replies");
+    if(!box){box=document.createElement("div");box.className="comment-replies";parent.appendChild(box);}
+    box.insertAdjacentHTML("beforeend",commentNode(slug,{...reply,replies:[]},{admin:true}));
+    bumpCommentCount(1);
+    closeInline("reply-slot-"+parentId);
+    showToast("Reply posted");
+  }catch(e){showToast(e.error||"Could not post reply",true)}
+}
+
+// --- edit (admin or token owner) ---
+function openEdit(id){
+  const bodyEl=document.getElementById("comment-body-"+id);
+  const slot=document.getElementById("reply-slot-"+id);
+  if(slot.querySelector(".comment-inline-box"))return;
+  const current=bodyEl.textContent;
+  slot.innerHTML=`<div class="comment-inline-box">
+    <textarea id="editBody-${id}">${esc(current)}</textarea>
+    <div class="row-btns">
+      <button class="btn-sm primary" onclick="submitEdit(${id})">Save</button>
+      <button class="btn-sm" onclick="closeInline('reply-slot-${id}')">Cancel</button>
+    </div>
+  </div>`;
+  const ta=document.getElementById("editBody-"+id);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
+}
+async function submitEdit(id){
+  const ta=document.getElementById("editBody-"+id);
+  const body=ta.value.trim();
+  if(!body)return;
+  try{
+    const token=tokenFor(id);
+    const updated=await api("/comments/"+id,{method:"PATCH",body:JSON.stringify({body,token})});
+    const bodyEl=document.getElementById("comment-body-"+id);
+    bodyEl.textContent=updated.body;
+    // add an "edited" marker if not already there
+    const head=document.querySelector("#comment-"+id+" .comment-head");
+    if(head&&!head.querySelector(".comment-edited")){
+      head.insertAdjacentHTML("beforeend",`<span class="comment-edited">· edited</span>`);
+    }
+    closeInline("reply-slot-"+id);
+    showToast("Comment updated");
+  }catch(e){showToast(e.error||"Could not edit comment",true)}
+}
+
+// --- delete (admin or token owner) ---
+async function deleteComment(slug,id){
+  if(!confirm("Delete this comment?"))return;
+  try{
+    const token=tokenFor(id);
+    await api("/comments/"+id,{method:"DELETE",body:JSON.stringify({token})});
+    const el=document.getElementById("comment-"+id);
+    // count this node + any replies that vanish with it
+    const removed=1+(el.querySelectorAll(".comment-item").length);
+    el?.remove();
+    dropCommentToken(id);
+    bumpCommentCount(-removed);
+    const listEl=document.getElementById("commentsList");
+    if(listEl&&!listEl.querySelector(".comment-item")){
+      listEl.innerHTML=`<div class="no-comments">No comments yet — be the first to share your thoughts.</div>`;
+    }
+    showToast("Comment deleted");
+  }catch(e){showToast(e.error||"Could not delete comment",true)}
+}
+function closeInline(slotId){const s=document.getElementById(slotId);if(s)s.innerHTML="";}
 
 // Reading-progress bar: how far through the post's body the reader has
 // scrolled, 0 at the top of the body to 100 at its end. Bound once per post

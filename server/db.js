@@ -8,6 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import pg from "pg";
+import crypto from "crypto";
 
 const { Pool } = pg;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -181,7 +182,7 @@ export async function publishDuePosts() {
     `UPDATE posts
         SET status = 'published', updated_at = now()
       WHERE status = 'scheduled' AND publish_at <= now()
-      RETURNING id, title, slug`
+      RETURNING id, title, slug, notified`
   );
   return rows;
 }
@@ -209,36 +210,101 @@ export async function createUser({ username, passwordHash }) {
 
 // --- Comments ----------------------------------------------------------
 
+// Returns top-level comments, each with a `replies` array (admin answers and
+// any nested comments). Edit tokens are never sent to the client; ownership
+// is checked server-side when an edit/delete comes in.
 export async function listComments(postId) {
   const { rows } = await pool.query(
-    `SELECT id, author, body, rating, created_at
+    `SELECT id, parent_id, author, body, rating, is_admin, created_at, updated_at
        FROM comments
       WHERE post_id = $1 AND approved = TRUE
       ORDER BY created_at ASC`,
     [postId]
   );
-  return rows.map((r) => ({
+  const map = new Map();
+  const roots = [];
+  for (const r of rows) {
+    const c = {
+      id: r.id,
+      parentId: r.parent_id,
+      author: r.author,
+      body: r.body,
+      rating: r.rating,
+      isAdmin: r.is_admin,
+      createdAt: new Date(r.created_at).getTime(),
+      updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
+      replies: [],
+    };
+    map.set(c.id, c);
+  }
+  for (const c of map.values()) {
+    if (c.parentId && map.has(c.parentId)) map.get(c.parentId).replies.push(c);
+    else roots.push(c);
+  }
+  return roots;
+}
+
+export async function createComment({ postId, author, email, body, rating, isAdmin = false, parentId = null }) {
+  const editToken = crypto.randomBytes(18).toString("hex");
+  const { rows } = await pool.query(
+    `INSERT INTO comments (post_id, author, email, body, rating, is_admin, parent_id, edit_token)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id, author, body, rating, is_admin, parent_id, created_at, updated_at`,
+    [postId, author, email || null, body, rating || null, isAdmin, parentId, editToken]
+  );
+  const r = rows[0];
+  return {
     id: r.id,
+    parentId: r.parent_id,
     author: r.author,
     body: r.body,
     rating: r.rating,
+    isAdmin: r.is_admin,
     createdAt: new Date(r.created_at).getTime(),
-  }));
+    updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
+    replies: [],
+    editToken, // returned ONCE to the author, then forgotten by the client side
+  };
 }
 
-export async function createComment({ postId, author, email, body, rating }) {
+// Edit a comment's body. If `token` is given it must match (anonymous author);
+// if `admin` is true the check is skipped. Returns the updated row or null.
+export async function updateComment(id, body, { token = null, admin = false } = {}) {
+  const where = admin ? `id = $2` : `id = $2 AND edit_token = $3`;
+  const params = admin ? [body, id] : [body, id, token];
   const { rows } = await pool.query(
-    `INSERT INTO comments (post_id, author, email, body, rating)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, author, body, rating, created_at`,
-    [postId, author, email || null, body, rating || null]
+    `UPDATE comments SET body = $1, updated_at = now() WHERE ${where}
+     RETURNING id, author, body, rating, is_admin, parent_id, created_at, updated_at`,
+    params
   );
+  if (!rows[0]) return null;
   const r = rows[0];
-  return { id: r.id, author: r.author, body: r.body, rating: r.rating, createdAt: new Date(r.created_at).getTime() };
+  return {
+    id: r.id, parentId: r.parent_id, author: r.author, body: r.body,
+    rating: r.rating, isAdmin: r.is_admin,
+    createdAt: new Date(r.created_at).getTime(),
+    updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
+  };
 }
 
 export async function deleteComment(id) {
   const { rowCount } = await pool.query(`DELETE FROM comments WHERE id = $1`, [id]);
+  return rowCount > 0;
+}
+
+// Raw row for a single comment — used when posting an admin reply so we can
+// find which post the parent belongs to.
+export async function getCommentById(id) {
+  const { rows } = await pool.query(`SELECT * FROM comments WHERE id = $1`, [id]);
+  return rows[0] || null;
+}
+
+// Anonymous author deleting their own comment: only succeeds with the token.
+export async function deleteCommentByToken(id, token) {
+  const { rowCount } = await pool.query(
+    `DELETE FROM comments WHERE id = $1 AND edit_token = $2`,
+    [id, token]
+  );
   return rowCount > 0;
 }
 
@@ -318,6 +384,17 @@ export async function listSubscribers() {
   return rows.map((r) => ({ email: r.email, createdAt: new Date(r.created_at).getTime() }));
 }
 
+// Just the addresses, for fan-out emails.
+export async function getSubscriberEmails() {
+  const { rows } = await pool.query(`SELECT email FROM subscribers ORDER BY created_at ASC`);
+  return rows.map((r) => r.email);
+}
+
+// Mark a post as "subscribers already emailed" so we never double-send.
+export async function markNotified(id) {
+  await pool.query(`UPDATE posts SET notified = TRUE WHERE id = $1`, [id]);
+}
+
 // --- helpers ---------------------------------------------------------------
 
 function rowToPost(r) {
@@ -333,6 +410,7 @@ function rowToPost(r) {
     publishAt: r.publish_at ? new Date(r.publish_at).getTime() : null,
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: new Date(r.updated_at).getTime(),
+    notified: r.notified || false,
     // Reading time: ~200 words per minute, min 1.
     readingTime: r.body ? Math.max(1, Math.round(r.body.split(/\s+/).length / 200)) : 1,
   };
